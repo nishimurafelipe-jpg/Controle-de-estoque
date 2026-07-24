@@ -251,6 +251,7 @@ button{cursor:pointer;border:none;background:none}
         <button class="st" onclick="setSubTab('munck')">Munck</button>
       </div>
       <div id="ilist"><div class="loading"><i class="ti ti-loader" style="font-size:28px;display:block;margin-bottom:.5rem"></i>Carregando...</div></div>
+      <div id="sub-hist" style="display:none"></div>
     </div>
 
     <!-- MOV -->
@@ -500,6 +501,11 @@ function startListeners(){
   unsubHistorico = onSnapshot(query(collection(db,'historico'), orderBy('data','desc')), snap=>{
     historico = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderHist(); renderRelatorio(); populateSels();
+    // Atualiza historico do sub se estiver visivel
+    if(subTabEst!=='principal'){
+      const subHistDiv=document.getElementById('sub-hist');
+      if(subHistDiv&&subHistDiv.style.display!=='none') renderSubHist(subTabEst);
+    }
   });
 }
 
@@ -543,6 +549,62 @@ window.setSubTab = function(s){
   subTabEst=s;
   document.querySelectorAll('#sub-tabs-est .st').forEach((b,i)=>b.classList.toggle('active',SUBS[i]===s));
   renderEstoque();
+  const subHistDiv=document.getElementById('sub-hist');
+  if(s==='principal'){
+    subHistDiv.style.display='none';
+  } else {
+    subHistDiv.style.display='block';
+    renderSubHist(s);
+  }
+}
+
+// ---- HISTORICO DO SUBINVENTARIO ----
+function renderSubHist(sub){
+  const subHistDiv=document.getElementById('sub-hist');
+  if(!subHistDiv) return;
+  // Filtra movimentacoes que envolvem este sub
+  const movs = historico.filter(h=>{
+    if(h.tipo==='uso') return h.sub===sub;
+    if(h.tipo==='transf') return h.de===sub||h.para===sub;
+    if(h.tipo==='estorno') return h.sub===sub;
+    return false;
+  }).slice(0,50);
+
+  const dots={transf:'d-t',uso:'d-u',estorno:'d-u'};
+  const qs={transf:'q-t',uso:'q-u',estorno:'q-e'};
+
+  const linhas = movs.map(h=>{
+    let meta='', sinal='-', cor='';
+    if(h.tipo==='uso'){
+      sinal='-'; cor='var(--amber)';
+      meta=`Uso · ${h.area||'—'} · ${h.resp||'—'}${h.dataApl?' · '+fdate(h.dataApl):''}`;
+    }
+    if(h.tipo==='transf'){
+      const entrou=h.para===sub;
+      sinal=entrou?'+':'-';
+      cor=entrou?'var(--green-main)':'var(--amber)';
+      meta=entrou
+        ? `Recebido de ${SLBL[h.de]||h.de}${h.obs?' · '+h.obs:''}`
+        : `Enviado para ${SLBL[h.para]||h.para}${h.obs?' · '+h.obs:''}`;
+    }
+    if(h.tipo==='estorno'){
+      sinal='+'; cor='var(--green-main)';
+      meta=`Estorno · ${h.status==='aprovado'?'aprovado':'pendente'}`;
+    }
+    return`<div class="hitem">
+      <div class="hdot" style="background:${cor};width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px"></div>
+      <div class="hinfo">
+        <div class="hn">${h.insumoNome||'—'}</div>
+        <div class="hm">${meta}</div>
+        <div class="hm">${fd(h.data)}</div>
+      </div>
+      <div class="hq" style="color:${cor}">${sinal}${h.qty} ${h.unidade}</div>
+    </div>`;
+  }).join('');
+
+  subHistDiv.innerHTML=`
+    <div class="stitle" style="margin-top:1.25rem">Movimentações — ${SLBL[sub]}</div>
+    ${movs.length ? linhas : '<div class="empty"><i class="ti ti-history"></i>Nenhuma movimentação neste subinventário.</div>'}`;
 }
 
 // ---- SELS ----

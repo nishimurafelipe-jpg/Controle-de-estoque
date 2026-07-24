@@ -670,6 +670,19 @@ window.remAreaLote = function(id){ areasLote=areasLote.filter(a=>a.id!==id); ren
 window.updAreaLote = function(id,val){
   const a=areasLote.find(x=>x.id==id); if(!a)return;
   a.haAplicado=parseDecimal(val);
+  // Atualiza campos de total na tela sem re-render (preserva foco)
+  prodLinhas.filter(pl=>pl.insumoId).forEach(pl=>{
+    const over=a.doseOverride?.[pl.id];
+    const ins=insumos.find(i=>i.id===pl.insumoId); if(!ins)return;
+    const doseRef=over?.dose!=null?over.dose:pl.dose;
+    if(doseRef&&a.haAplicado){
+      const totalEl=document.getElementById('total-'+id+'-'+pl.id);
+      if(totalEl) totalEl.value=r2(doseRef*a.haAplicado);
+    }
+    // Atualiza subinfo ha na header da area
+    const subEl=document.querySelector('#alc-'+id+' .alc-s');
+    if(subEl) subEl.textContent=(a.haCadastrado?a.haCadastrado+' ha cadastrado · ':'')+'aplicado: '+(a.haAplicado!=null?a.haAplicado+' ha':'—');
+  });
   recalcAreasLote();
 }
 
@@ -746,15 +759,14 @@ function renderAreasLote(){
 }
 
 function recalcAreasLote(){
-  renderAreasLote();
+  // Nao chama renderAreasLote() para nao destruir foco dos campos ao digitar
+  // Atualiza apenas o resumo via DOM
   const resumoDiv=document.getElementById('lote-resumo');
-  if(!areasLote.length||!prodLinhas.filter(pl=>pl.dose>0).length){resumoDiv.style.display='none';return;}
   const totais={};
   areasLote.forEach(a=>{
     if(!a.haAplicado)return;
     prodLinhas.filter(pl=>pl.insumoId).forEach(pl=>{
       const ins=insumos.find(i=>i.id===pl.insumoId); if(!ins)return;
-      // usa override individual se existir, senão usa dose global do produto
       const over=a.doseOverride?.[pl.id];
       let qtdArea=null;
       if(over?.total!=null) qtdArea=over.total;
@@ -765,6 +777,7 @@ function recalcAreasLote(){
       totais[ins.id].total=r2(totais[ins.id].total+qtdArea);
     });
   });
+  if(!areasLote.length||!Object.keys(totais).length){resumoDiv.style.display='none';return;}
   const totHa=r2(areasLote.filter(a=>a.haAplicado).reduce((s,a)=>s+a.haAplicado,0));
   let linhas=Object.values(totais).map(t=>`<div class="rl">${t.nome}<span>${t.total} ${t.unidade}</span></div>`).join('');
   linhas+=`<div class="rl">Total de ha<span>${totHa} ha · ${areasLote.length} área${areasLote.length!==1?'s':''}</span></div>`;

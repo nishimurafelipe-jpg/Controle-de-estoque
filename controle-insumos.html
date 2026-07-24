@@ -708,6 +708,16 @@ window.acFilter = function(){
   list.innerHTML=html||'<div class="ac-item" style="color:var(--text3)">Nenhuma área encontrada</div>';
   list.style.display='block';
 }
+// Event delegation para campos dose/total das areas (evita inline com IDs especiais)
+document.addEventListener('input',e=>{
+  if(e.target.classList.contains('dose-area-input')){
+    const aId=e.target.dataset.aid;
+    const plId=parseInt(e.target.dataset.plid);
+    const campo=e.target.dataset.campo;
+    updDoseArea(aId, plId, campo, e.target.value);
+  }
+});
+
 document.addEventListener('click',e=>{
   // Fechar autocomplete de areas
   const wrap=document.getElementById('ac-wrap');
@@ -766,15 +776,13 @@ window.updDoseArea = function(areaId, plId, campo, val){
   if(!a.doseOverride) a.doseOverride={};
   const v=parseDecimal(val);
   if(campo==='dose'){
-    // usuário digitou dose/ha → calcula total
     a.doseOverride[plId]={dose:v, total: (v&&a.haAplicado)?r2(v*a.haAplicado):null};
-    // atualiza campo total na tela sem re-render
-    const totalEl=document.getElementById(`total-${areaId}-${plId}`);
+    // atualiza campo total via data attributes (IDs do Firebase podem ter chars especiais)
+    const totalEl=document.querySelector(`[data-aid="${areaId}"][data-plid="${plId}"][data-campo="total"]`);
     if(totalEl) totalEl.value=(v&&a.haAplicado)?r2(v*a.haAplicado):'';
   } else {
-    // usuário digitou total → calcula dose/ha
     a.doseOverride[plId]={total:v, dose: (v&&a.haAplicado)?r2(v/a.haAplicado):null};
-    const doseEl=document.getElementById(`dose-${areaId}-${plId}`);
+    const doseEl=document.querySelector(`[data-aid="${areaId}"][data-plid="${plId}"][data-campo="dose"]`);
     if(doseEl) doseEl.value=(v&&a.haAplicado)?r2(v/a.haAplicado):'';
   }
   recalcAreasLote();
@@ -821,8 +829,8 @@ function renderAreasLote(){
           return`<div style="border-top:1px solid var(--border);padding:8px 0">
             <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">${ins.nome}</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px">${ins.unidade}/ha</label><input type="text" inputmode="decimal" id="dose-${a.id}-${pl.id}" value="${doseVal}" placeholder="dose/ha" oninput="updDoseArea('${a.id}',${pl.id},'dose',this.value)"></div>
-              <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px">Total (${ins.unidade})</label><input type="text" inputmode="decimal" id="total-${a.id}-${pl.id}" value="${totalVal}" placeholder="total" oninput="updDoseArea('${a.id}',${pl.id},'total',this.value)"></div>
+              <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px">${ins.unidade}/ha</label><input type="text" inputmode="decimal" id="dose-${a.id}-${pl.id}" data-aid="${a.id}" data-plid="${pl.id}" data-campo="dose" value="${doseVal}" placeholder="dose/ha" class="dose-area-input"></div>
+              <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px">Total (${ins.unidade})</label><input type="text" inputmode="decimal" id="total-${a.id}-${pl.id}" data-aid="${a.id}" data-plid="${pl.id}" data-campo="total" value="${totalVal}" placeholder="total" class="dose-area-input"></div>
             </div>
           </div>`;
         }).join('')}</div>`:'<div style="font-size:12px;color:var(--text3)">Adicione produtos na etapa 2 para ver as doses.</div>'}

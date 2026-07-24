@@ -597,6 +597,8 @@ window.selPlIns = function(plId, insId){
   // Atualiza unidade no span ao lado sem re-render
   const linha=txtEl?.closest('.prod-linha');
   if(linha){const span=linha.querySelector('.pl-r2 span');if(span)span.textContent=ins.unidade+'/ha planejado';}
+  // Re-renderiza areas para incluir os novos campos deste produto
+  if(areasLote.length) renderAreasLote();
   recalcAreasLote();
 }
 
@@ -775,14 +777,19 @@ window.updDoseArea = function(areaId, plId, campo, val){
   const pl=prodLinhas.find(p=>p.id==plId); if(!pl)return;
   if(!a.doseOverride) a.doseOverride={};
   const v=parseDecimal(val);
+  // Buscar campo irmao via dataset (evita problemas com chars especiais no querySelector)
+  const findInput = (targetCampo) => {
+    return Array.from(document.querySelectorAll('.dose-area-input')).find(
+      el => el.dataset.aid===String(areaId) && el.dataset.plid===String(plId) && el.dataset.campo===targetCampo
+    );
+  };
   if(campo==='dose'){
     a.doseOverride[plId]={dose:v, total: (v&&a.haAplicado)?r2(v*a.haAplicado):null};
-    // atualiza campo total via data attributes (IDs do Firebase podem ter chars especiais)
-    const totalEl=document.querySelector(`[data-aid="${areaId}"][data-plid="${plId}"][data-campo="total"]`);
+    const totalEl=findInput('total');
     if(totalEl) totalEl.value=(v&&a.haAplicado)?r2(v*a.haAplicado):'';
   } else {
     a.doseOverride[plId]={total:v, dose: (v&&a.haAplicado)?r2(v/a.haAplicado):null};
-    const doseEl=document.querySelector(`[data-aid="${areaId}"][data-plid="${plId}"][data-campo="dose"]`);
+    const doseEl=findInput('dose');
     if(doseEl) doseEl.value=(v&&a.haAplicado)?r2(v/a.haAplicado):'';
   }
   recalcAreasLote();
@@ -799,14 +806,7 @@ function renderAreasLote(){
     let tagHa='';
     if(estouro) tagHa=`<span class="dtag dtag-over"><i class="ti ti-alert-triangle"></i> +${r2(a.haAplicado-a.haCadastrado)} ha estouro</span>`;
     else if(parcial) tagHa=`<span class="dtag dtag-under"><i class="ti ti-scissors"></i> parcial</span>`;
-    const dosesHtml=prodLinhas.filter(pl=>pl.dose>0&&pl.insumoId).map(pl=>{
-      const ins=insumos.find(i=>i.id===pl.insumoId); if(!ins||!a.haAplicado)return'';
-      const qtdTotal=r2(pl.dose*a.haAplicado);
-      const doseReal=a.haAplicado>0?r2(qtdTotal/a.haAplicado):0;
-      const diff=r2(doseReal-pl.dose);
-      const tag=Math.abs(diff)>0.001?`<span class="dtag ${diff>0?'dtag-over':'dtag-under'}">${diff>0?'+':''}${diff} ${ins.unidade}/ha</span>`:`<span class="dtag dtag-ok">dose ok</span>`;
-      return`<div class="dose-linha">${ins.nome}: <b>${qtdTotal} ${ins.unidade}</b>${tag}</div>`;
-    }).join('');
+    // dosesHtml removido - campos inline de dose/total usados abaixo
     return`<div class="alc${(a.haCadastrado&&a.haAplicado&&a.haAplicado!==a.haCadastrado)||areasLote.find(x=>x.id===a.id&&x.haAplicado===x.haCadastrado)?'':''}" id="alc-${a.id}">
       <div class="alc-hd" onclick="toggleAlcBody('${a.id}')">
         <i class="ti ti-map-pin" style="color:var(--green-main);font-size:16px;flex-shrink:0"></i>

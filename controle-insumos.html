@@ -679,7 +679,7 @@ window.updPL = function(id,campo,val){
 }
 function renderProdLinhas(){
   document.getElementById('prod-linhas').innerHTML=prodLinhas.map(pl=>{
-    const ins=insumos.find(i=>i.id===pl.insumoId)||insumos[0];
+    const ins=pl.insumoId?insumos.find(i=>i.id===pl.insumoId):null;
     const nomeIns=ins?ins.nome:'';
     const unidIns=ins?ins.unidade:'';
     return`<div class="prod-linha">

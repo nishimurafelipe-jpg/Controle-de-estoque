@@ -262,7 +262,11 @@ button{cursor:pointer;border:none;background:none}
         <button class="tbt t-u" id="bt-u" onclick="setTipo('uso')"><i class="ti ti-leaf"></i> Uso único</button>
       </div>
       <div id="form-entrada">
-        <div class="fgrp"><label class="flbl">Insumo</label><select id="e-ins" onchange="su('e-ins','e-unit')"></select></div>
+        <div class="fgrp"><label class="flbl">Insumo</label><div class="ac-wrap" id="wrap-e-ins">
+  <input type="text" id="e-ins-txt" placeholder="Digite o nome do insumo..." autocomplete="off" oninput="insAC('e')" onfocus="insAC('e')">
+  <div class="ac-list" id="e-ins-list"></div>
+  <input type="hidden" id="e-ins">
+</div></div>
         <div class="frow">
           <div class="fgrp"><label class="flbl">Quantidade</label><input type="number" id="e-qty" min="0.01" step="0.01" placeholder="0"></div>
           <div class="fgrp"><label class="flbl">Unidade</label><input type="text" id="e-unit" readonly></div>
@@ -271,7 +275,11 @@ button{cursor:pointer;border:none;background:none}
         <button class="bsave" onclick="regMov('entrada')"><i class="ti ti-device-floppy"></i> Salvar entrada</button>
       </div>
       <div id="form-transf" style="display:none">
-        <div class="fgrp"><label class="flbl">Insumo</label><select id="t-ins" onchange="su('t-ins','t-unit')"></select></div>
+        <div class="fgrp"><label class="flbl">Insumo</label><div class="ac-wrap" id="wrap-t-ins">
+  <input type="text" id="t-ins-txt" placeholder="Digite o nome do insumo..." autocomplete="off" oninput="insAC('t')" onfocus="insAC('t')">
+  <div class="ac-list" id="t-ins-list"></div>
+  <input type="hidden" id="t-ins">
+</div></div>
         <div class="frow">
           <div class="fgrp"><label class="flbl">De</label><select id="t-de"></select></div>
           <div class="fgrp"><label class="flbl">Para</label><select id="t-para"></select></div>
@@ -285,7 +293,11 @@ button{cursor:pointer;border:none;background:none}
       </div>
       <div id="form-uso" style="display:none">
         <div class="fgrp"><label class="flbl">Subinventário</label><select id="u-sub"></select></div>
-        <div class="fgrp"><label class="flbl">Insumo</label><select id="u-ins" onchange="su('u-ins','u-unit')"></select></div>
+        <div class="fgrp"><label class="flbl">Insumo</label><div class="ac-wrap" id="wrap-u-ins">
+  <input type="text" id="u-ins-txt" placeholder="Digite o nome do insumo..." autocomplete="off" oninput="insAC('u')" onfocus="insAC('u')">
+  <div class="ac-list" id="u-ins-list"></div>
+  <input type="hidden" id="u-ins">
+</div></div>
         <div class="frow">
           <div class="fgrp"><label class="flbl">Quantidade</label><input type="number" id="u-qty" min="0.01" step="0.01" placeholder="0"></div>
           <div class="fgrp"><label class="flbl">Unidade</label><input type="text" id="u-unit" readonly></div>
@@ -535,9 +547,7 @@ window.setSubTab = function(s){
 
 // ---- SELS ----
 function populateSels(){
-  const opts=insumos.map(i=>`<option value="${i.id}">${i.nome}</option>`).join('');
-  ['e-ins','t-ins','u-ins'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
-  su('e-ins','e-unit'); su('t-ins','t-unit'); su('u-ins','u-unit');
+  // Subs (mantidos como select)
   const sAll=SUBS.map(s=>`<option value="${s}">${SLBL[s]}</option>`).join('');
   const sNoMain=SUBS.filter(s=>s!=='principal').map(s=>`<option value="${s}">${SLBL[s]}</option>`).join('');
   ['t-de','t-para'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=sAll;});
@@ -546,6 +556,48 @@ function populateSels(){
   const rIns=document.getElementById('r-ins');
   if(rArea){const as=[...new Set(historico.filter(h=>h.area).map(h=>h.area))].sort();rArea.innerHTML='<option value="">Todas</option>'+as.map(a=>`<option value="${a}">${a}</option>`).join('');}
   if(rIns){rIns.innerHTML='<option value="">Todos</option>'+insumos.map(i=>`<option value="${i.id}">${i.nome}</option>`).join('');}
+}
+
+// Autocomplete generico de insumo para os forms (prefixo: 'e','t','u')
+window.insAC = function(pfx){
+  const txtEl=document.getElementById(pfx+'-ins-txt'); if(!txtEl)return;
+  const q=txtEl.value.trim().toLowerCase();
+  const list=document.getElementById(pfx+'-ins-list'); if(!list)return;
+  const matches=insumos.filter(i=>!q||i.nome.toLowerCase().includes(q));
+  if(!matches.length){list.innerHTML='<div class="ac-item" style="color:var(--text3)">Nenhum insumo encontrado</div>';list.style.display='block';return;}
+  list.innerHTML=matches.map(i=>`<div class="ac-item" onclick="selIns('${pfx}','${i.id}')">${i.nome} <span style="color:var(--text3);font-size:12px">${i.unidade}</span></div>`).join('');
+  list.style.display='block';
+}
+
+window.selIns = function(pfx, insId){
+  const ins=insumos.find(i=>i.id===insId); if(!ins)return;
+  const txtEl=document.getElementById(pfx+'-ins-txt'); if(txtEl)txtEl.value=ins.nome;
+  const hidEl=document.getElementById(pfx+'-ins'); if(hidEl)hidEl.value=insId;
+  const list=document.getElementById(pfx+'-ins-list'); if(list)list.style.display='none';
+  const unitMap={e:'e-unit',t:'t-unit',u:'u-unit'};
+  const uEl=document.getElementById(unitMap[pfx]); if(uEl)uEl.value=ins.unidade;
+}
+
+// Autocomplete de produto nas linhas do lote
+window.plAC = function(plId, q){
+  const list=document.getElementById('pl-list-'+plId); if(!list)return;
+  const qL=(q||'').trim().toLowerCase();
+  const matches=insumos.filter(i=>!qL||i.nome.toLowerCase().includes(qL));
+  if(!matches.length){list.innerHTML='<div class="ac-item" style="color:var(--text3)">Nenhum produto encontrado</div>';list.style.display='block';return;}
+  list.innerHTML=matches.map(i=>`<div class="ac-item" onclick="selPlIns(${plId},'${i.id}')">${i.nome} <span style="color:var(--text3);font-size:12px">${i.unidade}</span></div>`).join('');
+  list.style.display='block';
+}
+
+window.selPlIns = function(plId, insId){
+  const ins=insumos.find(i=>i.id===insId); if(!ins)return;
+  const pl=prodLinhas.find(p=>p.id===plId); if(!pl)return;
+  pl.insumoId=insId;
+  const txtEl=document.getElementById('pl-txt-'+plId); if(txtEl)txtEl.value=ins.nome;
+  const list=document.getElementById('pl-list-'+plId); if(list)list.style.display='none';
+  // Atualiza unidade no span ao lado sem re-render
+  const linha=txtEl?.closest('.prod-linha');
+  if(linha){const span=linha.querySelector('.pl-r2 span');if(span)span.textContent=ins.unidade+'/ha planejado';}
+  recalcAreasLote();
 }
 
 window.su = function(selId, unitId){
@@ -574,7 +626,7 @@ window.regMov = async function(tipo){
     const novoQtd={...ins.qtd, principal: r2((ins.qtd?.principal||0)+qty)};
     await updateDoc(doc(db,'insumos',id),{qtd:novoQtd});
     await addDoc(collection(db,'historico'),{tipo:'entrada',insumoId:id,insumoNome:ins.nome,sub:'principal',qty,unidade:ins.unidade,obs:document.getElementById('e-obs').value.trim(),resp:user.displayName||user.email,criadoPorEmail:user.email,data:serverTimestamp()});
-    document.getElementById('e-qty').value=''; document.getElementById('e-obs').value='';
+    document.getElementById('e-qty').value=''; document.getElementById('e-obs').value=''; document.getElementById('e-ins-txt').value=''; document.getElementById('e-ins').value=''; document.getElementById('e-unit').value='';
   } else if(tipo==='transf'){
     const id=document.getElementById('t-ins').value;
     const qty=parseFloat(document.getElementById('t-qty').value);
@@ -586,7 +638,7 @@ window.regMov = async function(tipo){
     const novoQtd={...ins.qtd,[de]:r2((ins.qtd?.[de]||0)-qty),[para]:r2((ins.qtd?.[para]||0)+qty)};
     await updateDoc(doc(db,'insumos',id),{qtd:novoQtd});
     await addDoc(collection(db,'historico'),{tipo:'transf',insumoId:id,insumoNome:ins.nome,de,para,qty,unidade:ins.unidade,obs:document.getElementById('t-obs').value.trim(),resp:user.displayName||user.email,criadoPorEmail:user.email,data:serverTimestamp()});
-    document.getElementById('t-qty').value=''; document.getElementById('t-obs').value='';
+    document.getElementById('t-qty').value=''; document.getElementById('t-obs').value=''; document.getElementById('t-ins-txt').value=''; document.getElementById('t-ins').value=''; document.getElementById('t-unit').value='';
   } else {
     const id=document.getElementById('u-ins').value;
     const qty=parseFloat(document.getElementById('u-qty').value);
@@ -600,7 +652,7 @@ window.regMov = async function(tipo){
     const novoQtd={...ins.qtd,[sub]:r2((ins.qtd?.[sub]||0)-qty)};
     await updateDoc(doc(db,'insumos',id),{qtd:novoQtd});
     await addDoc(collection(db,'historico'),{tipo:'uso',insumoId:id,insumoNome:ins.nome,sub,qty,unidade:ins.unidade,area,resp,dataApl,registradoPor:user.displayName||user.email,criadoPorEmail:user.email,data:serverTimestamp()});
-    document.getElementById('u-qty').value=''; document.getElementById('u-area').value=''; document.getElementById('u-resp').value='';
+    document.getElementById('u-qty').value=''; document.getElementById('u-area').value=''; document.getElementById('u-resp').value=''; document.getElementById('u-ins-txt').value=''; document.getElementById('u-ins').value=''; document.getElementById('u-unit').value='';
   }
   toast.style.display='block'; setTimeout(()=>toast.style.display='none',2500);
 }
@@ -608,7 +660,7 @@ window.regMov = async function(tipo){
 // ---- LOTE ----
 window.addProdLinha = function(){
   if(!insumos.length){alert('Cadastre insumos primeiro em Config.');return;}
-  prodLinhas.push({id:nextPLId++,insumoId:insumos[0]?.id||null,dose:null});
+  prodLinhas.push({id:nextPLId++,insumoId:null,dose:null});
   renderProdLinhas();
 }
 window.remPL = function(id){ prodLinhas=prodLinhas.filter(p=>p.id!==id); renderProdLinhas(); recalcAreasLote(); }
@@ -628,10 +680,18 @@ window.updPL = function(id,campo,val){
 function renderProdLinhas(){
   document.getElementById('prod-linhas').innerHTML=prodLinhas.map(pl=>{
     const ins=insumos.find(i=>i.id===pl.insumoId)||insumos[0];
-    const selOpts=insumos.map(i=>`<option value="${i.id}"${i.id===pl.insumoId?' selected':''}>${i.nome}</option>`).join('');
+    const nomeIns=ins?ins.nome:'';
+    const unidIns=ins?ins.unidade:'';
     return`<div class="prod-linha">
-      <div class="pl-r1"><select onchange="updPL(${pl.id},'ins',this.value)">${selOpts}</select><button class="pl-del" onclick="remPL(${pl.id})"><i class="ti ti-x"></i></button></div>
-      <div class="pl-r2"><input type="text" inputmode="decimal" placeholder="dose/ha" value="${pl.dose??''}" oninput="updPL(${pl.id},'dose',this.value)" onblur="recalcAreasLote()"><span>${ins?ins.unidade:''}/ha planejado</span></div>
+      <div class="pl-r1">
+        <div class="ac-wrap" style="flex:1;min-width:0">
+          <input type="text" id="pl-txt-${pl.id}" value="${nomeIns}" placeholder="Digite o produto..." autocomplete="off"
+            oninput="plAC(${pl.id},this.value)" onfocus="plAC(${pl.id},this.value)" style="width:100%">
+          <div class="ac-list" id="pl-list-${pl.id}"></div>
+        </div>
+        <button class="pl-del" onclick="remPL(${pl.id})"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="pl-r2"><input type="text" inputmode="decimal" placeholder="dose/ha" value="${pl.dose??''}" oninput="updPL(${pl.id},'dose',this.value)" onblur="recalcAreasLote()"><span>${unidIns?unidIns+'/ha planejado':'selecione o produto'}</span></div>
     </div>`;
   }).join('');
 }
@@ -649,8 +709,21 @@ window.acFilter = function(){
   list.style.display='block';
 }
 document.addEventListener('click',e=>{
+  // Fechar autocomplete de areas
   const wrap=document.getElementById('ac-wrap');
   if(wrap&&!wrap.contains(e.target)) document.getElementById('ac-list').style.display='none';
+  // Fechar autocomplete de insumos nos forms
+  ['e','t','u'].forEach(pfx=>{
+    const w=document.getElementById('wrap-'+pfx+'-ins');
+    const l=document.getElementById(pfx+'-ins-list');
+    if(w&&l&&!w.contains(e.target)) l.style.display='none';
+  });
+  // Fechar autocomplete de produto no lote
+  prodLinhas.forEach(pl=>{
+    const txt=document.getElementById('pl-txt-'+pl.id);
+    const lst=document.getElementById('pl-list-'+pl.id);
+    if(txt&&lst&&!txt.contains(e.target)&&!lst.contains(e.target)) lst.style.display='none';
+  });
 });
 
 window.addAreaLote = function(areaId){

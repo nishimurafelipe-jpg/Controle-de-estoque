@@ -250,6 +250,10 @@ button{cursor:pointer;border:none;background:none}
         <button class="st" onclick="setSubTab('19008')">19008</button>
         <button class="st" onclick="setSubTab('munck')">Munck</button>
       </div>
+      <div id="est-busca-wrap" style="margin-bottom:.75rem;display:none">
+        <input type="text" id="est-busca" placeholder="Buscar produto..." autocomplete="off"
+          oninput="renderEstoque()" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:15px">
+      </div>
       <div id="ilist"><div class="loading"><i class="ti ti-loader" style="font-size:28px;display:block;margin-bottom:.5rem"></i>Carregando...</div></div>
       <div id="sub-hist" style="display:none"></div>
     </div>
@@ -528,16 +532,26 @@ function renderStats(){
 function renderEstoque(){
   renderStats();
   const lbl={ok:'Normal',low:'Baixo',crit:'Crítico'};
+  // Mostrar campo de busca só no principal
+  const buscaWrap=document.getElementById('est-busca-wrap');
+  if(buscaWrap) buscaWrap.style.display=subTabEst==='principal'?'block':'none';
+  const busca=(document.getElementById('est-busca')?.value||'').trim().toLowerCase();
   if(!insumos.length){ document.getElementById('ilist').innerHTML='<div class="empty"><i class="ti ti-box"></i>Nenhum insumo cadastrado.<br><small>Vá em Config para adicionar.</small></div>'; return; }
-  const listaFiltrada = subTabEst==='principal' ? insumos : insumos.filter(i=>(i.qtd?.[subTabEst]||0)>0);
-  if(!listaFiltrada.length){ document.getElementById('ilist').innerHTML='<div class="empty"><i class="ti ti-box"></i>Nenhum produto com saldo neste subinventário.</div>'; return; }
+  let listaFiltrada = subTabEst==='principal' ? insumos : insumos.filter(i=>(i.qtd?.[subTabEst]||0)>0);
+  if(busca) listaFiltrada=listaFiltrada.filter(i=>i.nome.toLowerCase().includes(busca));
+  if(!listaFiltrada.length){
+    const msg=busca?`Nenhum produto encontrado para "${busca}".`:'Nenhum produto com saldo neste subinventário.';
+    document.getElementById('ilist').innerHTML=`<div class="empty"><i class="ti ti-box"></i>${msg}</div>`; return;
+  }
   document.getElementById('ilist').innerHTML=listaFiltrada.map(i=>{
     const st=subTabEst==='all'?stI(i):stSub(i,subTabEst);
     const qty=subTabEst==='all'?totQtd(i):r2(i.qtd?.[subTabEst]||0);
     const p=subTabEst==='all'?pct(i):Math.min(100,Math.round(((i.qtd?.[subTabEst]||0)/(i.minimo*1.5||1))*100));
     const pills=subTabEst==='principal'?SUBS.filter(s=>s!=='principal').map(s=>`<span class="spill">${SLBL[s]}: <b>${r2(i.qtd?.[s]||0)}</b></span>`).join(''):'';
+    // Destacar termo buscado no nome
+    const nomeHtml=busca?i.nome.replace(new RegExp('('+busca.replace(/[.*+?^${}()|[\]\]/g,'\$&')+')','gi'),'<mark style="background:var(--green-pale);border-radius:2px;padding:0 2px">$1</mark>'):i.nome;
     return`<div class="icard">
-      <div class="icard-h"><span class="icard-n">${i.nome}</span><span class="badge b-${st}">${lbl[st]}</span></div>
+      <div class="icard-h"><span class="icard-n">${nomeHtml}</span><span class="badge b-${st}">${lbl[st]}</span></div>
       <div class="bw"><div class="bar bar-${st}" style="width:${p}%"></div></div>
       <div class="imeta"><span>${qty} ${i.unidade} em ${SLBL[subTabEst]}</span><span>Mín: ${i.minimo} ${i.unidade}</span></div>
       ${pills?`<div class="subrow">${pills}</div>`:''}
@@ -548,6 +562,9 @@ function renderEstoque(){
 window.setSubTab = function(s){
   subTabEst=s;
   document.querySelectorAll('#sub-tabs-est .st').forEach((b,i)=>b.classList.toggle('active',SUBS[i]===s));
+  // Limpa busca ao trocar sub
+  const buscaEl=document.getElementById('est-busca');
+  if(buscaEl) buscaEl.value='';
   renderEstoque();
   const subHistDiv=document.getElementById('sub-hist');
   if(s==='principal'){

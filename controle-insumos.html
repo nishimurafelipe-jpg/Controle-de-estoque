@@ -529,7 +529,7 @@ function renderStats(){
     <div class="sc"><div class="sc-l">Crítico</div><div class="sc-v danger">${crit}</div></div>`;
 }
 
-function renderEstoque(){
+window.renderEstoque = function renderEstoque(){
   renderStats();
   const lbl={ok:'Normal',low:'Baixo',crit:'Crítico'};
   // Mostrar campo de busca só no principal
